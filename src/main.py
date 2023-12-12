@@ -8,7 +8,8 @@ import tensorflow as tf
 from tensorflow.keras import models, layers, optimizers
 from tensorflow.keras.callbacks import EarlyStopping
 
-from plotter import get_class_samples
+from plotter import get_class_samples, model_accuracy_loss_plot, confusion_matrix_plot
+from models import get_cnn_model, get_early_stopping
 
 def main():
  
@@ -21,7 +22,7 @@ def main():
     test_dir = '../data/test/'
     class_names = os.listdir(train_dir)
 
-    img_size = (400, 400)  # This should be a tuple
+    img_size = (400, 400)
     batch_size = 32
 
     # Create the datasets for each directory
@@ -38,46 +39,51 @@ def main():
             image_size=img_size,
             batch_size=batch_size)
 
-    resize_and_rescale = tf.keras.Sequential([
-        layers.Resizing(img_size[0], img_size[1]),
-        layers.Rescaling(1./255)
-        ])
+    test_ds = tf.keras.utils.image_dataset_from_directory(
+            test_dir,
+            seed=220301,
+            image_size=img_size,
+            batch_size=batch_size)
 
-    model = tf.keras.models.Sequential([
-        resize_and_rescale,
+    # Call CNN model
+    cnn_model = get_cnn_model(img_size)
 
-        tf.keras.layers.Conv2D(64, (3, 3), activation='relu', input_shape=(img_size + (3,))),
-        tf.keras.layers.MaxPooling2D(2, 2),
+    # Print out the summary to view the model
+    cnn_model.build((None, 400, 400, 3))
+    cnn_model.summary()
 
-        tf.keras.layers.Conv2D(64, (3, 3), activation='relu'),
-        tf.keras.layers.MaxPooling2D(2, 2),
+    # Compile the model 
+    cnn_model.compile(loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False), optimizer='rmsprop', metrics=['accuracy'])
 
-        tf.keras.layers.Conv2D(64, (3, 3), activation='relu'),
-        tf.keras.layers.MaxPooling2D(2, 2),
+    # Get callback 
+    early_stopping = get_early_stopping()
 
-        tf.keras.layers.Flatten(),
-        tf.keras.layers.Dense(128, activation='relu'),
-        tf.keras.layers.Dense(64, activation='relu'),
-        tf.keras.layers.Dense(22, activation='softmax')
-        ])
-
-    
-    early_stopping = EarlyStopping(monitor='val_accuracy', patience=5, mode='max', 
-                                   restore_best_weights=True, verbose=1, 
-                                   baseline=0.95)
-
-    model.build((None, 400, 400, 3))
-
-    model.summary()
-    model.compile(loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True), optimizer='rmsprop', metrics=['accuracy'])
-
-    history = model.fit(train_ds,
-                        epochs=100,
+    # Fit the model to the training dataset and validate with the validation dataset.
+    # Also apply the early stopping callback
+    history = cnn_model.fit(train_ds,
+                        epochs=20,
                         validation_data=valid_ds,
                         callbacks=[early_stopping])
 
+    # Evaluate the model by giving our model some test data
+    cnn_scores = cnn_model.evaluate(test_ds)
 
+    # get the final accuracy from the test data
+    final_accuracy = cnn_scores[1]
+    model_accuracy_loss_plot(history)
 
+    # Predict on the test dataset
+    y_pred = []
+    y_true = []
+    for img_batch, label_batch in test_ds:
+        preds = cnn_model.predict(img_batch)
+        y_pred.extend(np.argmax(preds, axis=1))
+        y_true.extend(label_batch.numpy())
+
+    # Plot a confusion matrix
+    confusion_matrix_plot(y_true, y_pred, class_names)
+
+    print(f'CNN Score: {round(final_accuracy, 4) * 100}%')  
 
 if __name__ == '__main__':
     main()
