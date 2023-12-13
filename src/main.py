@@ -1,4 +1,9 @@
 import os 
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'  
+
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
@@ -10,9 +15,14 @@ from tensorflow.keras.callbacks import EarlyStopping
 
 from plotter import get_class_samples, model_accuracy_loss_plot, confusion_matrix_plot
 from models import get_cnn_model, get_early_stopping
+from data_handler import download_extract_split, check_files
 
 def main():
- 
+    
+    
+    if not check_files:
+        download_extract_split()
+
     # Visualise the types of data in the training data
     get_class_samples()
     
