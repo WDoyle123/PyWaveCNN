@@ -19,8 +19,10 @@ from data_handler import download_extract_split, check_files
 
 def main():
     
-    
-    if not check_files:
+
+    # Once run once you can set this to False
+    if True:
+        # Downloads, extracts and splits the data into train validation and test
         download_extract_split()
 
     # Visualise the types of data in the training data
